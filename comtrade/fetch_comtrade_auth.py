@@ -1,19 +1,3 @@
-"""
-Authenticated Comtrade bilateral trade fetch (DATA 31500 Final Project).
-
-API:  getTradeBalance/C/A/HS  (tools/v1)
-Auth: Ocp-Apim-Subscription-Key header (Basic free account)
-Quota: 500 calls/day, 1 call/sec, 100k records/call
-
-Strategy: one call per country with all years 1989-2024 batched.
-~124 calls total, runtime ~3 min.
-
-Output (comtrade/ folder):
-  bilateral_trade_auth.csv   -- bilateral pairs (partnerCode != 0)
-  world_totals_auth.csv      -- world totals  (partnerCode == 0)
-  fetch_checkpoint.csv       -- resume: already-fetched reporter codes
-"""
-
 import sys, os, time, json, requests
 import pandas as pd
 
@@ -24,7 +8,7 @@ if hasattr(sys.stderr, "reconfigure"):
 
 # ── config ─────────────────────────────────────────────────────────────────────
 
-API_KEY    = "4907f4211ea847b4b2b1689b2eeeb6c3"
+
 BASE_URL   = "https://comtradeapi.un.org/tools/v1/getTradeBalance/C/A/HS"
 HEADERS    = {"Ocp-Apim-Subscription-Key": API_KEY}
 YEAR_START = 1989
