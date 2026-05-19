@@ -7,6 +7,8 @@
   export let data;               // [{country, region, deaths}] for current year
   export let selectedCountry = null;
   export let selectedRegion  = null;
+  export let tradeFlows      = {};   // { "ISO3_YEAR": [{partner_iso3, total_usd, ...}] }
+  export let selectedYear    = null;
 
   const dispatch = createEventDispatcher();
 
@@ -34,6 +36,35 @@
   );
 
   $: maxVal = d3.max(data || [], d => d.deaths) || 1;
+
+  // Geographic centroids keyed by ISO3 (for arc rendering)
+  $: centroidByIso3 = geoData
+    ? new Map(
+        geoData.features
+          .filter(f => f.properties.iso_a3 && f.properties.iso_a3 !== "-99")
+          .map(f => [f.properties.iso_a3, d3.geoCentroid(f)])
+      )
+    : new Map();
+
+  // Resolve selected country CSV name → ISO3
+  $: selectedISO3 = (() => {
+    if (!selectedCountry || !geoData) return null;
+    const f = geoData.features.find(
+      f => geoNameToCSV(f.properties.name) === selectedCountry
+    );
+    return f ? f.properties.iso_a3 : null;
+  })();
+
+  // Trade flows for the current country + year
+  $: currentFlows = (() => {
+    if (!selectedISO3 || !selectedYear || !tradeFlows) return [];
+    return tradeFlows[`${selectedISO3}_${selectedYear}`] || [];
+  })();
+
+  // Stroke-width scale proportional to sqrt of trade volume
+  $: flowScale = d3.scaleSqrt()
+    .domain([0, d3.max(currentFlows, d => d.total_usd) || 1])
+    .range([0.8, 7]);
 
   // When a region is selected, countries outside it are dimmed to grey.
   function getColor(feature, map, max, region) {
@@ -112,6 +143,28 @@
             style="cursor: pointer;"
             on:click={() => handleClick(f)}
           />
+        {/each}
+      {/if}
+
+      <!-- Trade flow arcs: rendered on top of countries -->
+      {#if selectedISO3 && centroidByIso3.has(selectedISO3)}
+        {#each currentFlows as flow}
+          {#if centroidByIso3.has(flow.partner_iso3)}
+            <path
+              d={path({
+                type: "LineString",
+                coordinates: [
+                  centroidByIso3.get(selectedISO3),
+                  centroidByIso3.get(flow.partner_iso3),
+                ],
+              })}
+              fill="none"
+              stroke="rgba(41, 128, 185, 0.65)"
+              stroke-width={flowScale(flow.total_usd)}
+              stroke-linecap="round"
+              pointer-events="none"
+            />
+          {/if}
         {/each}
       {/if}
     </g>

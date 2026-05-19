@@ -2,29 +2,41 @@
   import * as d3 from 'd3';
   import { createEventDispatcher } from 'svelte';
 
-  // yearData: [{year, deaths}] sorted by year — already filtered by region/country upstream
+  // yearData: [{year, deaths, low, high}] sorted by year
   export let yearData = [];
   export let selectedYear;
-  // label shown in subtitle when a cross-filter is active
   export let filterLabel = '';
 
   const dispatch = createEventDispatcher();
 
   const width  = 580;
-  const height = 210;
+  const height = 188;
   const margin = { top: 24, right: 20, bottom: 32, left: 64 };
   const iW = width  - margin.left - margin.right;
   const iH = height - margin.top  - margin.bottom;
+
+  // y-domain uses the high estimate so the envelope never clips
+  $: yMax = d3.max(yearData, d => d.high ?? d.deaths) || 1;
 
   $: xScale = d3.scaleLinear()
     .domain(yearData.length ? [d3.min(yearData, d => d.year), d3.max(yearData, d => d.year)] : [1989, 2024])
     .range([0, iW]);
 
   $: yScale = d3.scaleLinear()
-    .domain([0, d3.max(yearData, d => d.deaths) || 1])
+    .domain([0, yMax])
     .nice()
     .range([iH, 0]);
 
+  // Shaded envelope between low and high estimates
+  $: envelopePath = yearData.length >= 2
+    ? d3.area()
+        .x(d => xScale(d.year))
+        .y0(d => yScale(d.low  ?? d.deaths))
+        .y1(d => yScale(d.high ?? d.deaths))
+        (yearData)
+    : null;
+
+  // Best-estimate line
   $: linePath = yearData.length >= 2
     ? d3.line().x(d => xScale(d.year)).y(d => yScale(d.deaths))(yearData)
     : null;
@@ -43,6 +55,10 @@
   <div class="chart-header">
     <span class="chart-title">Deaths Over Time</span>
     {#if filterLabel}<span class="filter-badge">{filterLabel}</span>{/if}
+    <div class="legend">
+      <span class="legend-band"></span><span class="legend-label">Low–High range</span>
+      <span class="legend-line"></span><span class="legend-label">Best estimate</span>
+    </div>
     <span class="hint">click a dot to set year</span>
   </div>
 
@@ -63,7 +79,12 @@
       {/each}
       <line x1={0} x2={iW} y1={iH} y2={iH} class="axis-line" />
 
-      <!-- line -->
+      <!-- low–high envelope (drawn first so the line sits on top) -->
+      {#if envelopePath}
+        <path d={envelopePath} class="envelope" />
+      {/if}
+
+      <!-- best-estimate line -->
       {#if linePath}
         <path d={linePath} fill="none" stroke="#c0392b" stroke-width="2" />
       {/if}
@@ -87,7 +108,7 @@
           style="cursor:pointer"
           on:click={() => dispatch('yearSelect', d.year)}
         >
-          <title>{d.year}: {d.deaths.toLocaleString()} deaths</title>
+          <title>{d.year}: best {d.deaths.toLocaleString()} · low {(d.low ?? d.deaths).toLocaleString()} · high {(d.high ?? d.deaths).toLocaleString()}</title>
         </circle>
       {/each}
 
@@ -125,10 +146,46 @@
     padding: 1px 6px;
   }
 
+  .legend {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: 4px;
+  }
+
+  .legend-band {
+    display: inline-block;
+    width: 18px;
+    height: 8px;
+    background: rgba(192, 57, 43, 0.18);
+    border: 1px solid rgba(192, 57, 43, 0.35);
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .legend-line {
+    display: inline-block;
+    width: 18px;
+    height: 2px;
+    background: #c0392b;
+    flex-shrink: 0;
+  }
+
+  .legend-label {
+    font-size: 0.70rem;
+    color: #888;
+  }
+
   .hint {
     font-size: 0.72rem;
     color: #aaa;
     margin-left: auto;
+  }
+
+  .envelope {
+    fill: rgba(192, 57, 43, 0.12);
+    stroke: rgba(192, 57, 43, 0.30);
+    stroke-width: 1;
   }
 
   .grid-line {

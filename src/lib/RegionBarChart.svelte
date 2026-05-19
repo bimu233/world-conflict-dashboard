@@ -8,7 +8,7 @@
 
   const dispatch = createEventDispatcher();
 
-  const width  = 420;
+  const width  = 440;
   const height = 210;
   const margin = { top: 24, right: 24, bottom: 15, left: 90 };
   const iW = width  - margin.left - margin.right;
