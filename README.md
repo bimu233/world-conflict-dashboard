@@ -6,4 +6,4 @@ The data is collected from uppsala conflict data program.
 
 
 
-deployment link: https://rad-bienenstitch-e849de.netlify.app/
+deployment link: https://dazzling-travesseiro-bcca35.netlify.app/
